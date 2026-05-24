@@ -1,6 +1,0 @@
-{
-  "name": "Payment Gateway & Microservices Demo",
-  "description": "An interactive full-stack Fintech payment gateway, microservices simulation, and Spring Boot architecture hub demonstrating ACID transactions, JWT auth, rate limiting, and async queues.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
