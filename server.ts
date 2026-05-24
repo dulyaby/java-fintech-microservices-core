@@ -108,17 +108,35 @@ function addLog(service: SystemLog['service'], level: SystemLog['level'], messag
   if (systemLogs.length > 100) systemLogs.pop();
 }
 
-// Initialize Gemini client (telemetry verified: user-agent applied)
+// Initialize Gemini client lazily (telemetry verified: user-agent applied)
 let ai: GoogleGenAI | null = null;
-if (process.env.GEMINI_API_KEY) {
-  ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
+
+function getGeminiClient(): GoogleGenAI | null {
+  if (ai) return ai;
+
+  // Search through all environment possibilities (Node.js process.env, Cloudflare worker globals, context bindings, etc.)
+  const keysToTest = [
+    process.env.GEMINI_API_KEY,
+    (globalThis as any).GEMINI_API_KEY,
+    (globalThis as any).process?.env?.GEMINI_API_KEY,
+    (globalThis as any).ENV?.GEMINI_API_KEY,
+    (globalThis as any).env?.GEMINI_API_KEY
+  ];
+
+  const foundKey = keysToTest.find(k => k && typeof k === 'string' && k.trim().length > 5);
+
+  if (foundKey) {
+    ai = new GoogleGenAI({
+      apiKey: foundKey.trim(),
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
       }
-    }
-  });
+    });
+    return ai;
+  }
+  return null;
 }
 
 // Mock Webhook Target sender
@@ -477,10 +495,11 @@ app.post('/api/crypto/aes', (req, res) => {
 app.post('/api/gemini/explain', async (req, res) => {
   const { history, prompt } = req.body;
   
-  if (!ai) {
+  const client = getGeminiClient();
+  if (!client) {
     return res.status(503).json({
       success: false,
-      reply: 'Gemini API not configured. Please add GEMINI_API_KEY in the Secrets panel in AI Studio UI settings.'
+      reply: 'Gemini API sio configured bado. Tafadhali ongeza GEMINI_API_KEY kwenye variables mazingira ya Cloudflare au kwenye AI Studio Secrets settings panel ili AI iweze kufanya kazi.'
     });
   }
 
@@ -503,7 +522,7 @@ app.post('/api/gemini/explain', async (req, res) => {
     }
     contents.push({ role: 'user', parts: [{ text: prompt }] });
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-3.5-flash',
       contents,
       config: {
